@@ -1,8 +1,5 @@
-import json
 from tkinter import *
-from tkinter import constants
 
-from numpy.lib.type_check import imag
 from jsonHandler import getJsonObject
 import jsonObject
 from PIL import ImageTk, Image
