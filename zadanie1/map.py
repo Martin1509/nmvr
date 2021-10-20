@@ -8,7 +8,7 @@ import jsonObject
 from PIL import ImageTk, Image
 
 def init():     
-
+    print("start")
     mainloop()
     
 def checkered(canvas, line_distance, increment):
