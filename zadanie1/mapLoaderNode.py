@@ -27,12 +27,15 @@ class MapLoaderNode(Node):
         self.publisher_.publish(msg)
 
     def listener_callback(self, msg):
-        dict = json.loads(msg.data)
-        object = jsonObject.Json(**dict)
-        
-        data = jsonHandler.createJsonObject(object.x, object.y, object.sizeOfTile, object.actor["x"], object.actor["y"],object.map)
-        jsonHandler.changeJson("zadanie1.json",data)
-        self.timer_callback()
+        if msg.data == "start":
+            self.timer_callback()
+        else:
+            dict = json.loads(msg.data)
+            object = jsonObject.Json(**dict)
+            
+            data = jsonHandler.createJsonObject(object.x, object.y, object.sizeOfTile, object.actor["x"], object.actor["y"],object.map)
+            jsonHandler.changeJson("zadanie1.json",data)
+            self.timer_callback()
 
 def main(args=None):
     rclpy.init(args=args)

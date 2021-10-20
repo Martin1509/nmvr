@@ -25,13 +25,19 @@ class Simulator(Node):
             self.listener_callback,
             10)
         self.subscription
+        _thread.start_new_thread(rclpy.spin, (self,))
+        msg = String()
+        msg.data = "start"
+        self.publisher_.publish(msg)
         self.move = False
         self.click = False 
         self.x = 0
         self.y = 0
         self.xActor = 0
         self.yActor = 0
-        self.object: jsonObject.Json = getJsonObject("zadanie1.json")
+        self.object: jsonObject.Json = None
+        while(self.object is None):
+            continue
         self.increment = 6
         self.root = Tk()
         self.root.title("Task 1")
@@ -56,7 +62,7 @@ class Simulator(Node):
         self.resized_image= self.img.resize((self.actorSize,self.actorSize), Image.ANTIALIAS)
         self.new_image= ImageTk.PhotoImage(self.resized_image)
         self.actor = self.w.create_image(self.xActor, self.yActor, image=self.new_image)
-        _thread.start_new_thread(rclpy.spin, (self,))
+        
         mainloop()
 
     def listener_callback(self, msg):
