@@ -83,8 +83,6 @@ def main(args=None):
     rclpy.init(args=args)
     
     simulator = Simulator()
-    #_thread.start_new_thread()
-    #_thread.start_new_thread(rclpy.spin, (simulator, ))
     
     rclpy.spin(simulator)
 
@@ -108,6 +106,7 @@ def checkered(self, canvas, line_distance, increment):
     renderMapTiles(self)
 
 def callback(event, self):
+    self.click = True
     xTile, yTile = getTile(self, event.x, event.y)
     #x, y = getCoordinates(self, xTile, yTile)
     if(self.object.map[xTile][yTile] == 0):
@@ -116,7 +115,7 @@ def callback(event, self):
     else:
         #self.w.create_rectangle(x, y, x+self.object.sizeOfTile, y+self.object.sizeOfTile, fill="#ffffff")
         self.object.map[xTile][yTile] = 0
-        self.click = True
+        
     publishMessage(self)
 
 def getTile(self, x, y):
