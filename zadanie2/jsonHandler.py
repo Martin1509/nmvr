@@ -16,10 +16,12 @@ def changeJson(pathToJson,object):
         json.dump(object, read_file, ensure_ascii=False, indent=4)
 
 
-def createJsonObject(x,y,sizeOfTile,actorX,actorY,map):
+def createJsonObject(x,y,sizeOfTile,actorX,actorY,map, speed, rotation):
     object  = {
         "x": x,
         "y": y,
+        "speed": speed,
+        "rotation": rotation,
         "sizeOfTile": sizeOfTile,
         "actor": {
             "x": actorX,

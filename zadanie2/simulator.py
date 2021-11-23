@@ -9,6 +9,7 @@ from jsonHandler import getJsonObject
 import jsonHandler
 import jsonObject
 from PIL import ImageTk, Image
+from datetime import datetime
 
 import json
 import _thread
@@ -38,6 +39,7 @@ class Simulator(Node):
         self.object: jsonObject.Json = None
         while(self.object is None):
             continue
+        self.lastRotation = 0
         self.increment = 6
         self.root = Tk()
         self.root.title("Task 1")
@@ -46,8 +48,9 @@ class Simulator(Node):
         self.canvas_height = self.object.y
         self.w: Canvas = Canvas(self.root, 
                     width=self.canvas_width+10,
-                    height=self.canvas_height+10)
+                    height=self.canvas_height+10+100)
                     
+        self.w.bind("<Button-1>", lambda event: callbackLeft(event, self))
         self.w.bind("<Button-1>", lambda event: callback(event, self))
         self.root.bind("<Left>", lambda event: moveActor(event, self))
         self.root.bind("<Right>", lambda event: moveActor(event, self))
@@ -69,9 +72,11 @@ class Simulator(Node):
         dict = json.loads(msg.data)
         object1 = jsonObject.Json(**dict)
         self.object = object1
-        print("update")
+        print("update {}".format(datetime.now().strftime("%H:%M:%S")))
         if self.move:
             self.w.move(self.actor, self.x, self.y)
+            if self.lastRotation != self.object.rotation:
+                rotateActor(self, self.object.rotation)
             self.move = False
         if self.click:
             renderMapTiles(self)
@@ -104,8 +109,31 @@ def checkered(self, canvas, line_distance, increment):
         canvas.create_line(0+increment, y+increment, self.canvas_width+increment, y+increment, fill="#000000")
     
     renderMapTiles(self)
+    more = 5
+    speedLabel = Label(self.root, text='Speed')
+    speedLabel.config(font=('helvetica', 10))
+    speedLabel.place(x= 5, y= self.canvas_height+10 + more)
+    self.speedEntry = Entry(self.root)
+    self.speedEntry.place(x=80, y = self.canvas_height+10)
+
+    rotationLabel = Label(self.root, text='Rotation')
+    rotationLabel.config(font=('helvetica', 10))
+    rotationLabel.place(x= 5, y= self.canvas_height+40 + more)
+    self.rotationEntry = Entry(self.root)
+    self.rotationEntry.place(x=80, y = self.canvas_height+40)
+
+    # goalLabel = Label(self.root, text='goal x:y')
+    # goalLabel.config(font=('helvetica', 10))
+    # goalLabel.place(x= 5, y= self.canvas_height+50 + more)
+    # speedEntry = Entry(self.root)
+    # speedEntry.place(x=80, y = self.canvas_height+50)
+
+    button = Button(text='Set parameters', command=lambda : buttonHandler(self), bg='gray', fg='black', font=('helvetica', 10, 'bold'), highlightbackground=('black'))
+    button.place(x= 5, y=self.canvas_height+70)
 
 def callback(event, self):
+    if self.canvas_height < event.y:
+        return
     self.click = True
     xTile, yTile = getTile(self, event.x, event.y)
     #x, y = getCoordinates(self, xTile, yTile)
@@ -164,10 +192,23 @@ def moveActor(event, self):
 
 def publishMessage(self):
     msg = String()
-    data = json.dumps(jsonHandler.createJsonObject(self.object.x, self.object.y, self.object.sizeOfTile, self.object.actor["x"], self.object.actor["y"],self.object.map))
+    data = json.dumps(jsonHandler.createJsonObject(self.object.x, self.object.y, self.object.sizeOfTile, self.object.actor["x"], self.object.actor["y"],self.object.map, self.object.speed, self.object.rotation))
     msg.data = "{}".format(data)
     self.publisher_.publish(msg)
 
+def rotateActor(self, angle):
+    self.new_image = ImageTk.PhotoImage(self.resized_image.rotate(angle))
+    self.actor = self.w.create_image(self.xActor, self.yActor, image=self.new_image)
+    self.lastRotation = angle
+
+def buttonHandler(self):
+    print("speed: {} and rotation: {}".format(self.speedEntry.get(), self.rotationEntry.get()))
+    if self.speedEntry.get() == "0" or self.speedEntry.get().isdigit():
+        self.object.speed = int(self.speedEntry.get())
+    if self.rotationEntry.get() == "0" or self.rotationEntry.get().isdigit():
+        self.object.rotation = int(self.rotationEntry.get())
+    self.move = True
+    publishMessage(self)
+
 if __name__ == '__main__':
     main()
-
