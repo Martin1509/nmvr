@@ -9,6 +9,8 @@ class Json():
         self.map = map
 
 class Actor():
-    def __init__(self, x, y):
+    def __init__(self, x, y, realX, realY ):
         self.x = x
         self.y = y
+        self.realX = realX
+        self.realY = realY

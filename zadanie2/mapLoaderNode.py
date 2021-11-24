@@ -23,7 +23,16 @@ class MapLoaderNode(Node):
     def timer_callback(self):
         msg = String()
         object = jsonHandler.getJsonObject("zadanie2.json")
-        msg.data = json.dumps(jsonHandler.createJsonObject(object.x, object.y, object.sizeOfTile, object.actor["x"], object.actor["y"],object.map, object.speed, object.rotation))
+        msg.data = json.dumps(jsonHandler.createJsonObject(object.x, 
+            object.y, 
+            object.sizeOfTile, 
+            object.actor["x"], 
+            object.actor["y"], 
+            object.actor["realX"], 
+            object.actor["realY"], 
+            object.map, 
+            object.speed, 
+            object.rotation))
         self.publisher_.publish(msg)
 
     def listener_callback(self, msg):
@@ -33,7 +42,16 @@ class MapLoaderNode(Node):
             dict = json.loads(msg.data)
             object = jsonObject.Json(**dict)
             
-            data = jsonHandler.createJsonObject(object.x, object.y, object.sizeOfTile, object.actor["x"], object.actor["y"],object.map, object.speed, object.rotation)
+            data = jsonHandler.createJsonObject(object.x, 
+                object.y, 
+                object.sizeOfTile, 
+                object.actor["x"], 
+                object.actor["y"], 
+                object.actor["realX"], 
+                object.actor["realY"], 
+                object.map, 
+                object.speed, 
+                object.rotation)
             jsonHandler.changeJson("zadanie2.json",data)
             self.timer_callback()
 
