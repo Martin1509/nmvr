@@ -32,6 +32,8 @@ class Simulator(Node):
         self.publisher_.publish(msg)
         self.move = False
         self.click = False 
+        self.start = False
+        self.goal = [-1, -1]
         self.x = 0
         self.y = 0
         self.xActor = 0
@@ -48,10 +50,10 @@ class Simulator(Node):
         self.canvas_height = self.object.y
         self.w: Canvas = Canvas(self.root, 
                     width=self.canvas_width+10,
-                    height=self.canvas_height+10+100)
+                    height=self.canvas_height+10+130)
                     
-        self.w.bind("<Button-1>", lambda event: callbackLeft(event, self))
-        self.w.bind("<Button-1>", lambda event: callback(event, self))
+        self.w.bind("<Button-1>", lambda event: callback(event, self, True))
+        self.w.bind("<Button-3>", lambda event: callback(event, self, False))
         self.root.bind("<Left>", lambda event: moveActor(event, self))
         self.root.bind("<Right>", lambda event: moveActor(event, self))
         self.root.bind("<Up>", lambda event: moveActor(event, self))
@@ -65,6 +67,8 @@ class Simulator(Node):
         self.resized_image= self.img.resize((self.actorSize,self.actorSize), Image.ANTIALIAS)
         self.new_image= ImageTk.PhotoImage(self.resized_image)
         self.actor = self.w.create_image(self.xActor, self.yActor, image=self.new_image)
+        rotateActor(self, self.object.rotation)
+        self.start = True
         
         mainloop()
 
@@ -73,16 +77,17 @@ class Simulator(Node):
         object1 = jsonObject.Json(**dict)
         self.object = object1
         print("update {}".format(datetime.now().strftime("%H:%M:%S")))
-        if self.move:
-            self.w.move(self.actor, self.x, self.y)
+        if self.start:
+            if self.move:
+                self.w.move(self.actor, self.x, self.y)
+                self.move = False
+            if self.click:
+                renderMapTiles(self)
+                self.w.tag_raise(self.actor)
+                self.click = False
+                self.root.update()
             if self.lastRotation != self.object.rotation:
                 rotateActor(self, self.object.rotation)
-            self.move = False
-        if self.click:
-            renderMapTiles(self)
-            self.w.tag_raise(self.actor)
-            self.click = False
-            self.root.update()
 
 def main(args=None):
     rclpy.init(args=args)
@@ -122,28 +127,28 @@ def checkered(self, canvas, line_distance, increment):
     self.rotationEntry = Entry(self.root)
     self.rotationEntry.place(x=80, y = self.canvas_height+40)
 
-    # goalLabel = Label(self.root, text='goal x:y')
-    # goalLabel.config(font=('helvetica', 10))
-    # goalLabel.place(x= 5, y= self.canvas_height+50 + more)
-    # speedEntry = Entry(self.root)
-    # speedEntry.place(x=80, y = self.canvas_height+50)
+    goalLabel = Label(self.root, text='goal x:y')
+    goalLabel.config(font=('helvetica', 10))
+    goalLabel.place(x= 5, y= self.canvas_height+70 + more)
+    self.goalEntry = Entry(self.root)
+    self.goalEntry.place(x=80, y = self.canvas_height+70)
 
     button = Button(text='Set parameters', command=lambda : buttonHandler(self), bg='gray', fg='black', font=('helvetica', 10, 'bold'), highlightbackground=('black'))
-    button.place(x= 5, y=self.canvas_height+70)
+    button.place(x= 5, y=self.canvas_height+100)
 
-def callback(event, self):
+def callback(event, self, left):
     if self.canvas_height < event.y:
         return
-    self.click = True
-    xTile, yTile = getTile(self, event.x, event.y)
-    #x, y = getCoordinates(self, xTile, yTile)
-    if(self.object.map[xTile][yTile] == 0):
-        #self.w.create_rectangle(x, y, x+self.object.sizeOfTile, y+self.object.sizeOfTile, fill="#7f8280")
-        self.object.map[xTile][yTile] = 1
+    if left:
+        xTile, yTile = getTile(self, event.x, event.y)
+        if(self.object.map[xTile][yTile] == 0):
+            self.object.map[xTile][yTile] = 1
+        else:
+            self.object.map[xTile][yTile] = 0
     else:
-        #self.w.create_rectangle(x, y, x+self.object.sizeOfTile, y+self.object.sizeOfTile, fill="#ffffff")
-        self.object.map[xTile][yTile] = 0
-        
+        self.goal = getTile(self, event.x, event.y)
+
+    self.click = True
     publishMessage(self)
 
 def getTile(self, x, y):
@@ -161,7 +166,9 @@ def renderMapTiles(self):
     for i in range(len(self.object.map)):
         for j in range(len(self.object.map[0])):
             x, y = getCoordinates(self, i, j)
-            if(self.object.map[i][j] == 1):
+            if(self.goal[0] == i and self.goal[1] == j):
+                self.w.create_rectangle(x, y, x+self.object.sizeOfTile, y+self.object.sizeOfTile, fill="#FF0000")
+            elif(self.object.map[i][j] == 1):
                 self.w.create_rectangle(x, y, x+self.object.sizeOfTile, y+self.object.sizeOfTile, fill="#7f8280")
             else:
                 self.w.create_rectangle(x, y, x+self.object.sizeOfTile, y+self.object.sizeOfTile, fill="#ffffff")
@@ -202,13 +209,18 @@ def rotateActor(self, angle):
     self.lastRotation = angle
 
 def buttonHandler(self):
-    print("speed: {} and rotation: {}".format(self.speedEntry.get(), self.rotationEntry.get()))
+    print("speed: {} and rotation: {} goal: {}".format(self.speedEntry.get(), self.rotationEntry.get(), self.goalEntry.get()))
     if self.speedEntry.get() == "0" or self.speedEntry.get().isdigit():
         self.object.speed = int(self.speedEntry.get())
     if self.rotationEntry.get() == "0" or self.rotationEntry.get().isdigit():
         self.object.rotation = int(self.rotationEntry.get())
-    self.move = True
+    self.goal = getXY(self.goalEntry.get())
+    self.click = True
     publishMessage(self)
+
+def getXY(message):
+    string = message.split(":")
+    return int(string[0]), int(string[1])
 
 if __name__ == '__main__':
     main()
