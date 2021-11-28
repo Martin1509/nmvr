@@ -1,5 +1,8 @@
+from typing import final
 import rclpy
 from rclpy.node import Node
+import time
+import math
 
 from std_msgs.msg import String
 
@@ -77,10 +80,11 @@ class Simulator(Node):
         dict = json.loads(msg.data)
         object1 = jsonObject.Json(**dict)
         self.object = object1
-        print("update {}".format(datetime.now().strftime("%H:%M:%S")))
+        # print("update {}".format(datetime.now().strftime("%H:%M:%S")))
         if self.start:
             if self.move:
                 self.w.move(self.actor, self.x, self.y)
+                # print("moved {} {}".format(self.x, self.y))
                 self.move = False
             if self.click:
                 renderMapTiles(self)
@@ -90,8 +94,8 @@ class Simulator(Node):
             if self.lastRotation != self.object.rotation:
                 rotateActor(self, self.object.rotation)
         
-        print("realX: {}  realY: {}".format(self.xActor, self.yActor))
-        print(self.goal)
+        # print("realX: {}  realY: {}".format(self.object.actor["realX"], self.object.actor["realY"]))
+        # print(self.goal)
 
 def main(args=None):
     rclpy.init(args=args)
@@ -146,7 +150,7 @@ def checkered(self, canvas, line_distance, increment):
     button = Button(text='Set parameters', command=lambda : buttonHandler(self), bg='gray', fg='black', font=('helvetica', 10, 'bold'), highlightbackground=('black'))
     button.place(x= 5, y=self.canvas_height+130)
 
-    navigateButton = Button(text='Navigate to goal', command=lambda : navigateHandler(self), bg='gray', fg='black', font=('helvetica', 10, 'bold'), highlightbackground=('black'))
+    navigateButton = Button(text='Navigate to goal', command=lambda : _thread.start_new_thread(navigateHandler, (self,)), bg='gray', fg='black', font=('helvetica', 10, 'bold'), highlightbackground=('black'))
     navigateButton.place(x= 5, y=self.canvas_height+160)
 
 def callback(event, self, left):
@@ -212,7 +216,7 @@ def moveActorKey(event, self):
     
     self.xActor, self.yActor = getCoordinatesOfActor(self,self.object.actor["x"], self.object.actor["y"],self.object.sizeOfTile)
     self.object.actor["realX"] = self.xActor
-    self.object.actro["realY"] = self.yActor
+    self.object.actor["realY"] = self.yActor
     self.move = True
     publishMessage(self)
 
@@ -224,7 +228,7 @@ def publishMessage(self):
 
 def rotateActor(self, angle):
     self.new_image = ImageTk.PhotoImage(self.resized_image.rotate(angle+90))
-    self.actor = self.w.create_image(self.xActor, self.yActor, image=self.new_image)
+    self.actor = self.w.create_image(self.object.actor["realX"], self.object.actor["realY"], image=self.new_image)
     self.lastRotation = angle
 
 def buttonHandler(self):
@@ -234,23 +238,100 @@ def buttonHandler(self):
     if self.rotationEntry.get() == "0" or self.rotationEntry.get().isdigit():
         self.object.rotation = int(self.rotationEntry.get())
     xy = getXY(self, self.goalEntry.get())
+    realxy = getXY(self, self.startEntry.get())
     if xy != None:
         self.goal = xy
+    if realxy != None:
+        self.x = realxy[2] - self.object.actor["realX"]
+        self.y = realxy[3] - self.object.actor["realY"] 
+        self.object.actor["x"] = realxy[0]
+        self.object.actor["y"] = realxy[1]
+        self.object.actor["realX"] = realxy[2]
+        self.object.actor["realY"] = realxy[3]
+        self.move = True
     self.click = True
     publishMessage(self)
 
 def navigateHandler(self):
     navGoal = [self.goal[2], self.goal[3]]
-    navPose = [self.xActor, self.yActor]
-
-    print(navGoal)
-    print(navPose)
-    
+    navPose = [self.object.actor["realX"], self.object.actor["realY"]]
     distance = PRegulator.euclidean_distance(navGoal, navPose)
-    linear = PRegulator.linear_vel(navGoal, navPose)
-    angular = PRegulator.angular_vel(navGoal, navPose, self.object.rotation)
+    
+    while distance > 5:
+        navPose = [self.object.actor["realX"], self.object.actor["realY"]]
+        linear = PRegulator.linear_vel(navGoal, navPose)
+        angular = PRegulator.angular_vel(navGoal, navPose, self.object.rotation)
+        distance = PRegulator.euclidean_distance(navGoal, navPose)
 
-    print("dis: {}, lin: {}, ang: {}".format(distance, linear, angular))
+        angle = PRegulator.steering_angle(navGoal, navPose)
+
+        finalAngle = 0
+        if angle >=0:
+            finalAngle = 360-angle
+        else :
+            finalAngle = abs(angle)
+
+        newAngle = getNewAngle(self, self.object.rotation, finalAngle, angular) 
+
+        changeXY(self, newAngle, linear)
+        
+        self.object.actor["realX"] = self.object.actor["realX"] + self.x
+        self.object.actor["realY"] = self.object.actor["realY"] + self.y
+        coordinates = getTile(self, self.object.actor["realX"], self.object.actor["realY"])
+        self.object.actor["x"] = coordinates[0]
+        self.object.actor["y"] = coordinates[1]
+        self.object.rotation = newAngle
+        print("dis: {}, lin: {}, finalAngle: {}, newAngle: {}\n\n".format(distance, linear, finalAngle, newAngle))
+        self.move = True
+        publishMessage(self)
+        time.sleep(0.2)
+
+def getNewAngle(self, oldRotation, oldFinalRotation, angular):
+    rotation = round(oldRotation)           # 130  270   10   350 
+    finalRotation = round(oldFinalRotation) # 40   40    40   10    
+    diff = abs(finalRotation - rotation)    # 90   230   30   340
+    plus = rotation + diff                  # 220  500   40   690
+    minus = rotation - diff                 # 40   40    -20  10
+    change = 0 
+    if diff *0.1 >= 0.5 :
+        change = diff *0.1
+    elif diff *0.7 >= 0.5:
+        change = diff *0.7
+    else :
+        return oldFinalRotation
+    
+    if plus == finalRotation:
+        if diff > 180:
+            # print("v smere")
+            return rotation - change if rotation - change > 0 else 360 + (rotation - change)
+        else:
+            # print("proti smere")
+            return rotation + change if rotation + change <= 360 else rotation + change - 360
+    elif minus == finalRotation:
+        if diff > 180:
+            # print("proti smeru")
+            return rotation + change if rotation + change <= 360 else rotation + change - 360
+        else:
+            # print("v smere")
+            return rotation - change if rotation - change >= 0 else 360 + (rotation - change)
+    return 0
+
+def changeXY(self, newAngle, linear):
+    selfX = math.cos(newAngle)*linear
+    selfY = math.sin(newAngle)*linear
+
+    if newAngle >=0 and newAngle < 90:
+        self.x = abs(selfX)
+        self.y = -abs(selfY)
+    if newAngle >=90 and newAngle < 180:
+        self.x = -abs(selfX)
+        self.y = -abs(selfY)
+    if newAngle >=180 and newAngle < 270:
+        self.x = -abs(selfX)
+        self.y = abs(selfY)
+    if newAngle >=270:
+        self.x = abs(selfX)
+        self.y = abs(selfY)
 
 def getXY(self, message):
     if ":" in message:
