@@ -13,9 +13,9 @@ def steering_angle(goal, pose):
 
 def angular_vel(goal, pose, theta = 0, constant=10):
     steer = steering_angle(goal, pose) # kde mam byt natoceny
-    return constant * wrapToPi(steer - theta)
+    return constant * changePiToRange(steer - theta)
 
-def wrapToPi(angle):
+def changePiToRange(angle):
     while angle > math.pi:
         angle -= 2.0 * math.pi
     while angle < -math.pi:

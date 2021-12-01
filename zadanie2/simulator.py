@@ -93,7 +93,6 @@ class Simulator(Node):
                 self.click = False
                 self.root.update()
             if self.lastRotation != self.object.rotation:
-                
                 rotateActor(self, degrees(self.object.rotation))
 
 def main(args=None):
@@ -262,14 +261,14 @@ def navigateHandler(self):
 
     xx = navPose[0]
     yy = navPose[1]
-    theta = PRegulator.wrapToPi(self.object.rotation)
-    print(theta)
+    theta = PRegulator.changePiToRange(self.object.rotation)
 
     while distance > 10:
+        navPose = [self.object.actor["realX"], self.object.actor["realY"]]
 
-        linear = PRegulator.linear_vel(navGoal,[xx,yy])
-        angular = PRegulator.angular_vel(navGoal, [xx,yy], theta)
-        distance = PRegulator.euclidean_distance(navGoal,[xx,yy])
+        linear = PRegulator.linear_vel(navGoal,navPose)
+        angular = PRegulator.angular_vel(navGoal, navPose, theta)
+        distance = PRegulator.euclidean_distance(navGoal,navPose)
 
         d_r = (linear + 0.5*l*angular) * ts
         d_l = (linear - 0.5*l*angular) * ts
@@ -280,21 +279,12 @@ def navigateHandler(self):
         self.y = (d_c * math.sin(theta))
         xx = xx + (d_c * math.cos(theta))
         yy = yy + (d_c * math.sin(theta))
-        theta = PRegulator.wrapToPi(theta + phi)
-        #print(theta)
-        self.object.rotation = PRegulator.wrapToPi(self.object.rotation - phi)
+        theta = PRegulator.changePiToRange(theta + phi)
 
-        # print(phi)
         print(navGoal)
         print("x: {}, y: {}".format(xx,yy))
 
-
-        # print(navPose)
-        # print(navGoal)
-        # print("lin: {}, ang: {}, dis: {}".format(linear, angular, distance))
-        # print("d_r: {}, d_l: {}, d_c: {}, phi: {}".format(d_r, d_l, d_c, phi))
-        # print("newX: {}, newY: {}, rot: {}".format(self.x, self.y, self.object.rotation))
-
+        self.object.rotation = -PRegulator.steering_angle([xx, yy], [self.object.actor["realX"], self.object.actor["realY"]])
         self.object.actor["realX"] = self.object.actor["realX"] + self.x
         self.object.actor["realY"] = self.object.actor["realY"] + self.y
         coordinates = getTile(self, self.object.actor["realX"], self.object.actor["realY"])
