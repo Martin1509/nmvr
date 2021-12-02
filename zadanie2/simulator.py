@@ -277,6 +277,7 @@ def navigateHandler(self):
         phi = (d_r - d_l)/l
         self.x = (d_c * math.cos(theta))
         self.y = (d_c * math.sin(theta))
+
         xx = xx + (d_c * math.cos(theta))
         yy = yy + (d_c * math.sin(theta))
         theta = PRegulator.changePiToRange(theta + phi)
